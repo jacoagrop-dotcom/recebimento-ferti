@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>PCP - JACO AGRO | Dashboard Dinâmico Completo</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        :root { 
+            --primary: #1c54b2; --agro-green: #1a5c1a; --bg: #eef3f6; 
+            --text: #333; --success: #28a745; --danger: #cc0000; --warning: #f39c12;
+            --info: #007bff;
+        }
+        
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background-color: var(--bg); margin: 0; padding: 0; color: var(--text); }
+        
+        /* HEADER BANNER */
+        .dashboard-header { 
+            background: linear-gradient(90deg, #1a5c1a 0%, #237a23 100%);
+            padding: 15px 30px; display: flex; justify-content: space-between; align-items: center;
+            border-bottom: 4px solid var(--primary); box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        }
+        .header-logo-container { background: white; padding: 5px; border-radius: 6px; display: flex; align-items: center; justify-content: center; width: 140px; height: 50px; }
+        .logo-img { max-width: 100%; max-height: 100%; object-fit: contain; }
+        .header-title { flex-grow: 1; text-align: center; color: white; font-size: 1.6em; font-weight: 800; text-transform: uppercase; }
+
+        .main-content { padding: 20px; }
+
+        /* CARDS GERAIS (TOP) */
+        .summary-total-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px; margin-bottom: 30px; }
+        .summary-total-card { 
+            background: linear-gradient(135deg, #1c54b2 0%, #002d72 100%); 
+            color: white; border-radius: 12px; padding: 20px; position: relative;
+            box-shadow: 0 6px 15px rgba(0,0,0,0.15); 
+        }
+        .summary-total-value { font-size: 2em; font-weight: bold; margin: 10px 0; }
+        .btn-excluir-pedido { position: absolute; top: 10px; right: 10px; background: none; border: none; color: white; cursor: pointer; opacity: 0.5; font-size: 18px; }
+        .btn-excluir-pedido:hover { opacity: 1; }
+        .progress-total-bg { background: rgba(255,255,255,0.2); height: 10px; border-radius: 5px; overflow: hidden; margin-top: 10px; }
+
+        /* GRID FAZENDAS */
+        .fazendas-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 20px; }
+        .fazenda-card { background: white; border-radius: 12px; padding: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); border-top: 6px solid var(--primary); }
+        .fazenda-card h3 { margin: 0 0 15px 0; color: var(--primary); display: flex; justify-content: space-between; align-items: center; font-size: 1.1em; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+        
+        /* NOVO LAYOUT PEDIDO ITEM */
+        .pedido-item { background: #fdfdfd; padding: 12px; border-radius: 8px; margin-bottom: 12px; border: 1px solid #e0e0e0; border-left: 6px solid var(--primary); position: relative; cursor: pointer; transition: 0.2s; }
+        .pedido-item:hover { transform: scale(1.01); box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .btn-lixeira { position: absolute; top: 8px; right: 8px; color: var(--danger); cursor: pointer; border: none; background: none; font-size: 16px; z-index: 10; }
+
+        .item-recebido { font-size: 1.4em; font-weight: 800; color: var(--primary); margin: 4px 0; }
+        .item-meta { font-size: 0.85em; color: #666; font-weight: bold; margin-bottom: 8px; }
+
+        .status-badge { font-size: 0.75em; font-weight: bold; padding: 4px 10px; border-radius: 4px; display: inline-block; margin-top: 5px; width: 100%; box-sizing: border-box; text-align: center; }
+        .status-finalizado { background: #d4edda; color: #155724; border-left: 4px solid var(--success); }
+        .status-falta { background: #f8d7da; color: #721c24; border-left: 4px solid var(--danger); }
+        .status-excedente { background: #d1ecf1; color: #0c5460; border-left: 4px solid var(--info); }
+
+        /* MODAIS */
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); backdrop-filter: blur(2px); }
+        .modal-content { background: white; margin: 5% auto; padding: 25px; width: 90%; max-width: 1100px; border-radius: 12px; max-height: 85vh; overflow-y: auto; }
+        .modal-small { max-width: 400px; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 0.85em; }
+        th { background: var(--primary); color: white; padding: 12px; text-align: left; position: sticky; top: 0; }
+        td { padding: 10px; border-bottom: 1px solid #eee; }
+        
+        input { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; }
+        .btn-acao { background: var(--primary); color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        .btn-upload { border: 2px solid var(--primary); color: var(--primary); background: white; padding: 5px 12px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 12px; }
+        .upload-btn-wrapper { position: relative; overflow: hidden; display: inline-block; }
+        .upload-btn-wrapper input[type=file] { position: absolute; left: 0; top: 0; opacity: 0; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+<header class="dashboard-header">
+    <div class="header-logo-container"><img src="https://i.ibb.co/k2hn8Ydt/jaco-agro-novo.jpg" class="logo-img"></div>
+    <div class="header-title">Recebimento de Fertilizantes</div>
+    <div class="header-logo-container"><img src="https://i.ibb.co/KjYFzDkf/PCP-novo.png" class="logo-img"></div>
+</header>
+
+<div class="main-content">
+    <div style="margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center;">
+        <button class="btn-acao" onclick="abrirModalConfig()">+ NOVO PEDIDO GERAL (GRUPO)</button>
+        <button onclick="limparTudo()" style="color: #666; background:none; border:none; cursor:pointer; font-size:11px;">Limpar Banco de Dados</button>
+    </div>
+
+    <div class="summary-total-container" id="container-geral"></div>
+
+    <div class="fazendas-grid" id="grid-fazendas"></div>
+</div>
+
+<div id="modalConfig" class="modal">
+    <div class="modal-content modal-small">
+        <h3 style="margin-top:0; color:var(--primary)">Novo Grupo de Monitoramento</h3>
+        <p style="font-size: 0.8em; color: #666;">O card somará planilhas que contenham este nome no arquivo.</p>
+        <label>Nome do Produto (Filtro)</label>
+        <input type="text" id="inputProduto" placeholder="Ex: 20-00-20 ou VARREDURA">
+        <label>Fornecedor</label>
+        <input type="text" id="inputFornecedor" placeholder="Ex: Fertipar">
+        <div style="display:flex; gap:10px; margin-top:15px;">
+            <button class="btn-acao" style="flex:1" onclick="adicionarPedidoGeral()">CRIAR</button>
+            <button class="btn-acao" style="flex:1; background:#666" onclick="fecharModais()">FECHAR</button>
+        </div>
+    </div>
+</div>
+
+<div id="modalDetalhes" class="modal">
+    <div class="modal-content">
+        <span style="float:right; cursor:pointer; font-size:28px;" onclick="fecharModais()">&times;</span>
+        <h2 id="detalheTitulo" style="color:var(--primary); margin-top:0;"></h2>
+        <div id="detalheTabela"></div>
+    </div>
+</div>
+
+<script>
+    let db = JSON.parse(localStorage.getItem('jaco_pcp_v50')) || {
+        pedidosGerais: [],
+        fazendas: { "ACAIA": {}, "ESTANCIA": {}, "GAUCHA": {}, "SANTA LUZIA": {}, "SÃO GABRIEL": {} }
+    };
+
+    window.onload = renderizar;
+
+    function formatar(v) { return isNaN(v) ? "0,00" : v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+
+    function abrirModalConfig() { document.getElementById('modalConfig').style.display = 'block'; }
+    function fecharModais() { document.querySelectorAll('.modal').forEach(m => m.style.display = 'none'); }
+
+    function adicionarPedidoGeral() {
+        const nome = document.getElementById('inputProduto').value.trim().toUpperCase();
+        const forn = document.getElementById('inputFornecedor').value.trim();
+        if (!nome) return alert("Defina o nome do produto para o filtro.");
+        db.pedidosGerais.push({ produto: nome, fornecedor: forn });
+        salvarERenderizar();
+        fecharModais();
+        document.getElementById('inputProduto').value = '';
+        document.getElementById('inputFornecedor').value = '';
+    }
+
+    function processarPlanilha(input, fazendaNome) {
+        const files = Array.from(input.files);
+        let lidos = 0;
+        files.forEach(file => {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const data = new Uint8Array(e.target.result);
+                const wb = XLSX.read(data, {type: 'array', cellDates: true});
+                const wsReport = wb.Sheets["REPORT"];
+                const wsReg = wb.Sheets["REGISTRO"];
+
+                if(wsReport) {
+                    const jsonReport = XLSX.utils.sheet_to_json(wsReport, {header: 1, raw: true});
+                    const r = jsonReport[8] || []; 
+                    
+                    let cargas = [];
+                    if(wsReg) {
+                        const jsonReg = XLSX.utils.sheet_to_json(wsReg, {header: 1, raw: true});
+                        jsonReg.forEach((row, idx) => {
+                            if(idx >= 9 && (row[1] || row[5] || row[9])) {
+                                cargas.push({
+                                    dt: row[1] instanceof Date ? row[1].toLocaleDateString('pt-BR') : (row[1] || '-'),
+                                    transp: row[2] || '-',
+                                    placa: row[3] || '-',
+                                    nf: row[5] || '-',
+                                    pesoNF: parseFloat(row[8]) || 0,
+                                    pesoBal: parseFloat(row[9]) || 0
+                                });
+                            }
+                        });
+                    }
+
+                    db.fazendas[fazendaNome][file.name] = {
+                        nome: file.name.toUpperCase().replace('.XLSX', ''),
+                        planejado: parseFloat(r[5]) || 0,
+                        recebido: parseFloat(r[7]) || 0,
+                        cargas: cargas
+                    };
+                }
+                lidos++;
+                if(lidos === files.length) salvarERenderizar();
+            };
+            reader.readAsArrayBuffer(file);
+        });
+    }
+
+    function renderizar() {
+        const grid = document.getElementById('grid-fazendas');
+        grid.innerHTML = '';
+        
+        for (let faz in db.fazendas) {
+            let htmlArqs = '';
+            for (let fk in db.fazendas[faz]) {
+                const f = db.fazendas[faz][fk];
+                const falta = f.planejado - f.recebido;
+                let statusClass = 'status-falta', statusText = `FALTA RECEBER: ${formatar(falta)} TON`;
+                
+                if(falta === 0) { 
+                    statusClass = 'status-finalizado'; 
+                    statusText = 'FINALIZADO'; 
+                } else if(falta < 0) { 
+                    statusClass = 'status-excedente'; 
+                    statusText = `FINALIZADO PASSOU ${formatar(Math.abs(falta))} TON`; 
+                }
+
+                htmlArqs += `
+                    <div class="pedido-item" onclick="verDetalhes('${faz}', '${fk}')">
+                        <button class="btn-lixeira" onclick="removerArquivo(event, '${faz}', '${fk}')">🗑️</button>
+                        <div style="font-size:0.75em; color:var(--primary); font-weight:bold; margin-bottom:4px;">${f.nome}</div>
+                        <div class="item-recebido">${formatar(f.recebido)} TON</div>
+                        <div class="item-meta">META DO PEDIDO: ${formatar(f.planejado)} TON</div>
+                        <div class="status-badge ${statusClass}">${statusText}</div>
+                    </div>`;
+            }
+            grid.innerHTML += `
+                <div class="fazenda-card">
+                    <h3>${faz} 
+                        <div class="upload-btn-wrapper">
+                            <button class="btn-upload">+ Importar</button>
+                            <input type="file" onchange="processarPlanilha(this, '${faz}')" accept=".xlsx" multiple>
+                        </div>
+                    </h3>
+                    <div>${htmlArqs || '<p style="color:#999; font-size:12px; text-align:center;">Nenhum arquivo importado.</p>'}</div>
+                </div>`;
+        }
+
+        const containerGeral = document.getElementById('container-geral');
+        containerGeral.innerHTML = '';
+
+        db.pedidosGerais.forEach((pg, idx) => {
+            let totR = 0;
+            let totP = 0;
+
+            Object.values(db.fazendas).forEach(fazObj => {
+                Object.keys(fazObj).forEach(key => {
+                    if(key.toUpperCase().includes(pg.produto.toUpperCase())) {
+                        totR += fazObj[key].recebido;
+                        totP += fazObj[key].planejado;
+                    }
+                });
+            });
+
+            const perc = totP > 0 ? ((totR / totP) * 100).toFixed(1) : 0;
+            const s = totP - totR;
+
+            containerGeral.innerHTML += `
+                <div class="summary-total-card">
+                    <button class="btn-excluir-pedido" onclick="removerPedidoGeral(${idx})">&times;</button>
+                    <h3>${pg.produto}</h3>
+                    <div style="font-size:0.8em; opacity:0.8; margin-bottom:10px;">FORNECEDOR: ${pg.fornecedor || 'N/A'}</div>
+                    <div class="summary-total-value">${formatar(totR)} TON</div>
+                    <div style="font-size:0.9em; opacity:0.9">META DO PEDIDO: ${formatar(totP)} TON (${perc}%)</div>
+                    <div style="margin-top:10px; font-weight:bold; font-size:0.85em;">
+                        ${s > 0 ? 'FALTA RECEBER: ' + formatar(s) : 'RECEBIMENTO CONCLUÍDO'}
+                    </div>
+                    <div class="progress-total-bg"><div style="height:100%; background:var(--success); width:${Math.min(100, perc)}%"></div></div>
+                </div>`;
+        });
+    }
+
+    function verDetalhes(faz, key) {
+        const f = db.fazendas[faz][key];
+        document.getElementById('detalheTitulo').innerText = `${faz} | ${f.nome}`;
+        let html = `<table><thead><tr><th>DATA</th><th>TRANSPORTADORA</th><th>PLACA</th><th>NF</th><th>PESO NF</th><th>PESO BAL.</th></tr></thead><tbody>`;
+        if(f.cargas.length > 0) {
+            f.cargas.forEach(c => {
+                html += `<tr><td>${c.dt}</td><td>${c.transp}</td><td>${c.placa}</td><td>${c.nf}</td><td>${formatar(c.pesoNF)}</td><td>${formatar(c.pesoBal)}</td></tr>`;
+            });
+        } else {
+            html += `<tr><td colspan="6" style="text-align:center; padding:20px;">Nenhuma carga registrada na aba REGISTRO.</td></tr>`;
+        }
+        document.getElementById('detalheTabela').innerHTML = html + `</tbody></table>`;
+        document.getElementById('modalDetalhes').style.display = 'block';
+    }
+
+    function removerArquivo(e, faz, key) {
+        e.stopPropagation();
+        if(confirm('Excluir este arquivo?')) {
+            delete db.fazendas[faz][key];
+            salvarERenderizar();
+        }
+    }
+
+    function removerPedidoGeral(idx) {
+        if(confirm('Remover este grupo de monitoramento?')) {
+            db.pedidosGerais.splice(idx, 1);
+            salvarERenderizar();
+        }
+    }
+
+    function salvarERenderizar() {
+        localStorage.setItem('jaco_pcp_v50', JSON.stringify(db));
+        renderizar();
+    }
+
+    function limparTudo() {
+        if(confirm('ATENÇÃO: Isso apagará todos os dados salvos. Continuar?')) {
+            localStorage.removeItem('jaco_pcp_v50');
+            location.reload();
+        }
+    }
+
+    window.onclick = function(e) { if(e.target.className === 'modal') fecharModais(); }
+</script>
+</body>
+</html>
